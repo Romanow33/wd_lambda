@@ -38,15 +38,21 @@ export class IacStack extends cdk.Stack {
       resources: ['*'],
     }));
 
-    const httpApi = new apigw.HttpApi(this, 'ImageApi', {
-      defaultIntegration: new integrations.HttpLambdaIntegration(
-        'LambdaIntegration',
-        lambdaFn
-      ),
+    const httpApi = new apigw.HttpApi(this, 'ImageApi');
+
+    const lambdaIntegration = new integrations.HttpLambdaIntegration(
+      'LambdaIntegration',
+      lambdaFn
+    );
+
+    httpApi.addRoutes({
+      path: '/aggregate',
+      methods: [apigw.HttpMethod.POST],
+      integration: lambdaIntegration,
     });
 
     new cdk.CfnOutput(this, 'APIEndpoint', {
-      value: httpApi.url ?? 'Something went wrong with the deployment',
+      value: httpApi.apiEndpoint + '/aggregate',
     });
   }
 }

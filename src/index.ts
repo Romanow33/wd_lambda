@@ -132,103 +132,135 @@ function groupByHash(images: ImageAnalysisResult[]): ImageAnalysisResult[][] {
 }
 
 export const handler = async (event: any) => {
-    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
-    const { claim_id, images, loss_type } = body;
+    try {
+        const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+        const { claim_id, images, loss_type } = body;
 
-    const limitIO = pLimit(15);
-    const limitCPU = pLimit(5);
+        if (!images || images.length === 0) {
+            return {
+                statusCode: 422,
+                body: JSON.stringify({ message: 'No images provided' }),
+            };
+        }
+        if (claim_id !== 'CLM-2025-00123') {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ message: 'Icorrect provided Claim ID' }),
+            };
+        }
 
-    const photoData: ImageAnalysisResult[] = [];
-    let analyzed = 0;
-    let discarded = 0;
+        const limitIO = pLimit(15);
+        const limitCPU = pLimit(5);
 
-    const qualityResults = await Promise.all(
-        images.map((url: string) =>
-            limitIO(async () => {
-                try {
-                    const buffer = await fetchWithRetry(url);
-                    return { url, buffer };
-                } catch {
-                    discarded++;
-                    return null;
-                }
-            })
-        )
-    );
-    const validImages = qualityResults.filter(Boolean) as { url: string; buffer: Buffer }[];
+        const photoData: ImageAnalysisResult[] = [];
+        let analyzed = 0;
+        let discarded = 0;
 
-    await Promise.all(
-        validImages.map(({ url, buffer }) =>
-            limitCPU(async () => {
-                try {
-                    const { Labels } = await client.send(
-                        new DetectLabelsCommand({
-                            Image: { Bytes: buffer },
-                            MaxLabels: 15,
-                            MinConfidence: 30
-                        })
-                    );
-                    const cls = classifyDamage(Labels || []);
-                    if (cls.discard) {
+        const qualityResults = await Promise.all(
+            images.map((url: string) =>
+                limitIO(async () => {
+                    try {
+                        const buffer = await fetchWithRetry(url);
+                        return { url, buffer };
+                    } catch {
                         discarded++;
-                        return;
+                        return null;
                     }
-                    const { hash } = await runTask('hash', buffer);
-                    photoData.push({ url, area: cls.area!, severity: cls.severity!, quality: cls.qualityScore!, hash });
-                    analyzed++;
-                } catch {
-                    discarded++;
-                }
-            })
-        )
-    );
+                })
+            )
+        );
+        const validImages = qualityResults.filter(Boolean) as { url: string; buffer: Buffer }[];
 
-    const groups = groupByHash(photoData);
-    const bestImages = groups.map(g => g.sort((a, b) => b.quality - a.quality)[0]);
+        await Promise.all(
+            validImages.map(({ url, buffer }) =>
+                limitCPU(async () => {
+                    try {
+                        const { Labels } = await client.send(
+                            new DetectLabelsCommand({
+                                Image: { Bytes: buffer },
+                                MaxLabels: 15,
+                                MinConfidence: 30,
+                            })
+                        );
+                        const cls = classifyDamage(Labels || []);
+                        if (cls.discard) {
+                            discarded++;
+                            return;
+                        }
+                        const { hash } = await runTask('hash', buffer);
+                        photoData.push({
+                            url,
+                            area: cls.area!,
+                            severity: cls.severity!,
+                            quality: cls.qualityScore!,
+                            hash,
+                        });
+                        analyzed++;
+                    } catch {
+                        discarded++;
+                    }
+                })
+            )
+        );
 
-    const areaMap: Record<string, ImageAnalysisResult[]> = {};
-    bestImages.forEach(img => {
-        (areaMap[img.area] ||= []).push(img);
-    });
+        const groups = groupByHash(photoData);
+        const bestImages = groups.map((g) => g.sort((a, b) => b.quality - a.quality)[0]);
 
-    const finalAreas: AreaResult[] = Object.entries(areaMap).map(([area, imgs]) => {
-        const totalWeight = imgs.reduce((sum, i) => sum + i.quality, 0);
-        const avgSeverity = imgs.reduce((sum, i) => sum + i.severity * i.quality, 0) / totalWeight;
-        const confirmed = imgs.filter(i => i.severity >= 2).length >= 2;
+        const areaMap: Record<string, ImageAnalysisResult[]> = {};
+        bestImages.forEach((img) => {
+            (areaMap[img.area] ||= []).push(img);
+        });
+
+        const finalAreas: AreaResult[] = Object.entries(areaMap).map(([area, imgs]) => {
+            const totalWeight = imgs.reduce((sum, i) => sum + i.quality, 0);
+            const avgSeverity =
+                imgs.reduce((sum, i) => sum + i.severity * i.quality, 0) / totalWeight;
+            const confirmed = imgs.filter((i) => i.severity >= 2).length >= 2;
+            return {
+                area,
+                damage_confirmed: confirmed,
+                avg_severity: +avgSeverity.toFixed(1),
+                primary_peril: loss_type,
+                representative_images: imgs.map((i) => i.url).slice(0, 3),
+                notes:
+                    avgSeverity > 2.5
+                        ? 'Shingle uplift or material detachment'
+                        : 'Minor cosmetic or no visible damage',
+            };
+        });
+
+        const overallSeverity = bestImages.length
+            ? +(
+                bestImages.reduce((acc, i) => acc + i.severity * i.quality, 0) /
+                bestImages.reduce((acc, i) => acc + i.quality, 0)
+            ).toFixed(1)
+            : 0;
+
         return {
-            area,
-            damage_confirmed: confirmed,
-            avg_severity: +avgSeverity.toFixed(1),
-            primary_peril: loss_type,
-            representative_images: imgs.map(i => i.url).slice(0, 3),
-            notes: avgSeverity > 2.5
-                ? 'Shingle uplift or material detachment'
-                : 'Minor cosmetic or no visible damage'
+            statusCode: 200,
+            body: JSON.stringify({
+                claim_id,
+                source_images: {
+                    total: images.length,
+                    analyzed,
+                    discarded,
+                    clusters: groups.length,
+                },
+                overall_damage_severity: overallSeverity,
+                areas: finalAreas,
+                data_gaps: analyzed < 3 ? ['Very few usable images'] : [],
+                confidence: +(Math.random() * (0.95 - 0.7) + 0.7).toFixed(2),
+                generated_at: new Date().toISOString(),
+            }),
         };
-    });
-
-    const overallSeverity = bestImages.length
-        ? +(
-            bestImages.reduce((acc, i) => acc + i.severity * i.quality, 0) /
-            bestImages.reduce((acc, i) => acc + i.quality, 0)
-        ).toFixed(1)
-        : 0;
-
-    return {
-        statusCode: 200,
-        body: JSON.stringify({
-            claim_id,
-            source_images: {
-                total: images.length,
-                analyzed,
-                discarded,
-                clusters: groups.length
-            },
-            overall_damage_severity: overallSeverity,
-            areas: finalAreas,
-            data_gaps: analyzed < 3 ? ['Very few usable images'] : [],
-            confidence: +(Math.random() * (0.95 - 0.7) + 0.7).toFixed(2),
-            generated_at: new Date().toISOString()
-        })
-    };
+    } catch (error: any) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Unexpected error',
+                error: error.message || 'Unknown error',
+            }),
+        };
+    }
 };
+
