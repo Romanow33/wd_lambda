@@ -22,11 +22,8 @@ export class IacStack extends cdk.Stack {
         nodeModules: ['p-limit', 'jimp', 'image-hash'],
         commandHooks: {
           beforeInstall: () => [],
-          // Antes de bundle nada
           beforeBundling: () => [],
-          // Después de bundle, transpila worker.ts a worker.js junto al handler
           afterBundling: (_inputDir, outputDir) => [
-            // transpila con esbuild (asegúrate de tenerlo en devDependencies)
             `npx esbuild ${path.resolve(__dirname, '../../src/worker.ts')} \
            --bundle --platform=node --target=node18 \
            --outfile=${path.join(outputDir, 'worker.js')}`

@@ -5,7 +5,6 @@ import { Worker } from 'worker_threads';
 
 const client = new RekognitionClient({ region: 'us-east-1' });
 
-// --- Worker pool setup ---
 const WORKER_COUNT = 2;
 const workerPath = path.resolve(__dirname, 'worker.js');
 const workers = Array.from({ length: WORKER_COUNT }, () => new Worker(workerPath));
@@ -107,7 +106,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 300): Promise<Bu
     throw new Error('Unreachable');
 }
 
-// Agrupación por hash
 function groupByHash(images: ImageAnalysisResult[]): ImageAnalysisResult[][] {
     const groups: ImageAnalysisResult[][] = [];
     const visited = new Array(images.length).fill(false);
@@ -144,7 +142,6 @@ export const handler = async (event: any) => {
     let analyzed = 0;
     let discarded = 0;
 
-    // 1) Fetch images
     const qualityResults = await Promise.all(
         images.map((url: string) =>
             limitIO(async () => {
@@ -160,7 +157,6 @@ export const handler = async (event: any) => {
     );
     const validImages = qualityResults.filter(Boolean) as { url: string; buffer: Buffer }[];
 
-    // 2) Rekognition + classification + hash
     await Promise.all(
         validImages.map(({ url, buffer }) =>
             limitCPU(async () => {
@@ -187,11 +183,9 @@ export const handler = async (event: any) => {
         )
     );
 
-    // 3) Agrupar y escoger mejor imagen de cada cluster
     const groups = groupByHash(photoData);
     const bestImages = groups.map(g => g.sort((a, b) => b.quality - a.quality)[0]);
 
-    // 4) Agregación por área
     const areaMap: Record<string, ImageAnalysisResult[]> = {};
     bestImages.forEach(img => {
         (areaMap[img.area] ||= []).push(img);
@@ -213,7 +207,6 @@ export const handler = async (event: any) => {
         };
     });
 
-    // 5) Severidad global
     const overallSeverity = bestImages.length
         ? +(
             bestImages.reduce((acc, i) => acc + i.severity * i.quality, 0) /
