@@ -1,0 +1,51 @@
+{
+    "claim_id": "CLM-2025-00123",
+    "source_images": {
+        "total": 49,
+        "analyzed": 36,
+        "discarded": 13,
+        "clusters": 36
+    },
+    "overall_damage_severity": 0.4,
+    "areas": [
+        {
+            "area": "garage",
+            "damage_confirmed": false,
+            "avg_severity": 0,
+            "primary_peril": "wind",
+            "representative_images": [
+                "https://ia-wamy.s3.amazonaws.com/item_140cb165-eb27-466a-9b35-a3db9a13d3ad.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_3a808b41-be25-4c12-8084-8533121a5f38.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_3ac502f6-984f-4437-a9b8-400d10255f7a.jpg"
+            ],
+            "notes": "Minor cosmetic or no visible damage"
+        },
+        {
+            "area": "roof",
+            "damage_confirmed": true,
+            "avg_severity": 0.6,
+            "primary_peril": "wind",
+            "representative_images": [
+                "https://ia-wamy.s3.amazonaws.com/item_05578d2a-e6d5-438f-ab27-6e9767957764.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_0c2e1710-f666-4869-9e82-1bfcce821487.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_0becc8b1-82f8-4127-bffe-3972adfba44e.jpg"
+            ],
+            "notes": "Minor cosmetic or no visible damage"
+        },
+        {
+            "area": "siding",
+            "damage_confirmed": false,
+            "avg_severity": 0.3,
+            "primary_peril": "wind",
+            "representative_images": [
+                "https://ia-wamy.s3.amazonaws.com/item_12e10403-387f-475f-80af-2bd65f927296.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_2ac08527-039f-4fb7-97d0-b42b6c85a619.jpg",
+                "https://ia-wamy.s3.amazonaws.com/item_2ce0dbd5-0932-433d-9e7b-933ab0900e72.jpg"
+            ],
+            "notes": "Minor cosmetic or no visible damage"
+        }
+    ],
+    "data_gaps": [],
+    "confidence": 0.81,
+    "generated_at": "2025-07-10T23:25:03.091Z"
+}
