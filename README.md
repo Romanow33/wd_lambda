@@ -4,23 +4,25 @@ This project implements a serverless image analysis pipeline for insurance claim
 
 
 ## 📦 Project Structure
-
+```bash
 ├── iac/ # Infrastructure-as-Code using AWS CDK (TypeScript)
 │ └── package.json
 ├── src/ # Lambda function code and image processing logic
 │ └── package.json
 └── README.md
+```
 
 ## 🚀 One-Command Deployment
 
-Prerequisites
-Node.js ≥ 16
-AWS CLI configured
-AWS CDK v2 installed
+Prerequisites<br>
+Node.js ≥ 16<br>
+AWS CLI configured<br>
+AWS CDK v2 installed<br>
 
 This script automates the installation of all dependencies and deploys your stack.
 
 ```bash
+cd iac
 npm run one-deploy
 ```
 
@@ -49,6 +51,5 @@ cdk destroy
 ```
 
 ## Assumptions
-
 
 For testing purposes, the images in the provided ZIP were uploaded to a public S3 bucket I created. However, the test can and should be performed with any public image.
