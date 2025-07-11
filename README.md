@@ -6,9 +6,7 @@ This project implements a serverless image analysis pipeline for insurance claim
 ## 📦 Project Structure
 ```bash
 ├── iac/ # Infrastructure-as-Code using AWS CDK (TypeScript)
-│ └── package.json
 ├── src/ # Lambda function code and image processing logic
-│ └── package.json
 └── README.md
 ```
 
