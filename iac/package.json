@@ -9,7 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "bootstrap": "npx cdk bootstrap",
-    "build-lambda": "cd ../src && npm install && npx tsc",
+    "build-lambda": "cd ../src && npm install",
     "deploy": "npm run bootstrap && npm run build-lambda && npm install && cdk deploy",
     "one-deploy": "npm run deploy",
     "cdk": "cdk"
